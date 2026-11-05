@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vercel/
+.DS_Store
+.env
+.env.*
+dataset.json
+dataset.json.*.tmp

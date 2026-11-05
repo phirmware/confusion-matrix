@@ -1,0 +1,15 @@
+{
+  "name": "kyc-name-matching-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A vanilla JavaScript KYC name-matching calibration demo.",
+  "scripts": {
+    "start": "node server.cjs",
+    "build": "node build.cjs",
+    "preview": "node server.cjs --preview",
+    "test": "node --test server.test.cjs demo.test.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

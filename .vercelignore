@@ -1,0 +1,10 @@
+.git/
+.vercel/
+node_modules/
+dist/
+.env
+.env.*
+dataset.json
+dataset.json.*.tmp
+server.cjs
+*.test.cjs

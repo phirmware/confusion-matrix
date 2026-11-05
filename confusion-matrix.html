@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KYC Name Matching Lab</title>
+  <meta name="description" content="An interactive KYC calibration demo. Explore reordered names, missing middle names, and the trade-off between false approvals and false rejections.">
+  <meta name="theme-color" content="#0f172a">
+  <meta property="og:title" content="KYC Name Matching Lab">
+  <meta property="og:description" content="Same identity. Different name. Explore the decisions behind name matching in a live, interactive calibration lab.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+  <style>
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    body { background: radial-gradient(ellipse at top, #eef2ff 0, #f8fafc 48%); }
+    .panel { box-shadow: 0 2px 6px #0f172a03, 0 12px 32px #0f172a04; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .hero {
+      background: radial-gradient(ellipse at top right, #4338ca66, transparent 65%), #0f172a;
+    }
+    .step {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; margin-right: 8px; border-radius: 8px;
+      background: #eef2ff; color: #4f46e5; font-size: 12px; vertical-align: middle;
+    }
+    section[id] { scroll-margin-top: 24px; }
+    th { white-space: nowrap; }
+    #results td { vertical-align: middle; }
+    #results td:first-child { min-width: 220px; max-width: 340px; overflow-wrap: anywhere; }
+    #results td:last-child { min-width: 180px; }
+    [hidden] { display: none !important; }
+    input[type="range"] { accent-color: #4f46e5; }
+    input[type="text"], select { min-height: 44px; }
+    button, input, select { touch-action: manipulation; }
+    :focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+    .sandbox-target {
+      outline: 3px solid #6366f1;
+      outline-offset: 4px;
+    }
+    .matrix-cell { transition: background-color 150ms, outline-color 150ms; }
+    @media (max-width: 420px) {
+      .matrix-grid.matrix-grid { gap: 6px; grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr); }
+      .matrix-grid .matrix-cell { padding: 10px; }
+      .matrix-cell p:first-child { font-size: 11px; }
+      .matrix-cell p:nth-child(2) { font-size: 30px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased">
+  <a href="#policy" class="sr-only focus:not-sr-only focus:absolute focus:z-10 focus:bg-white focus:p-4">Skip to calibration controls</a>
+  <main class="mx-auto max-w-7xl space-y-6 p-4 sm:p-8">
+    <nav aria-label="Main navigation" class="flex flex-wrap items-center justify-between gap-4 pb-2">
+      <a href="#" class="flex items-center gap-3 font-bold tracking-tight">
+        <span aria-hidden="true" class="grid h-10 w-10 grid-cols-2 gap-1 rounded-xl bg-slate-900 p-2.5">
+          <span class="rounded-sm bg-indigo-400"></span><span class="rounded-sm bg-orange-300"></span>
+          <span class="rounded-sm bg-rose-400"></span><span class="rounded-sm bg-emerald-300"></span>
+        </span>
+        <span>NameMatch <span class="font-normal text-slate-500">/ Lab</span></span>
+      </a>
+      <div class="flex items-center gap-4 text-sm">
+        <span class="hidden items-center gap-2 text-xs font-medium text-slate-500 sm:inline-flex">
+          <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Interactive demo
+        </span>
+        <a href="#sandbox" class="rounded-lg border border-slate-300 bg-white px-3 py-2 font-semibold hover:bg-slate-50">Try a name pair <span aria-hidden="true">↗</span></a>
+      </div>
+    </nav>
+
+    <header class="hero grid gap-8 overflow-hidden rounded-3xl p-6 text-white sm:p-10 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+      <div>
+        <p class="eyebrow text-indigo-300">KYC / Decision intelligence</p>
+        <h1 class="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
+          Same identity.<br><span class="text-indigo-300">Different name.</span>
+        </h1>
+        <p class="mt-5 max-w-lg text-sm leading-7 text-slate-300 sm:text-base">
+          A missing middle name shouldn't mean a missed customer.
+          Explore how name matching handles real-world variation—and where it gets things wrong.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href="#policy" class="rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-indigo-50">Explore the calibration lab <span aria-hidden="true">↓</span></a>
+          <span class="self-center text-xs text-slate-400">No account. No setup. Just explore.</span>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
+        <p class="eyebrow text-slate-400">One identity, two common challenges</p>
+        <p class="mt-4 text-xs text-slate-400">ACCOUNT PROFILE</p>
+        <p class="mt-1 text-lg font-semibold">Alexander James Vance</p>
+        <div class="mt-5 space-y-3">
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/50 p-3">
+            <div><p class="text-xs text-indigo-300">Rearranged</p><p class="mt-1 text-sm">Vance Alexander James</p></div>
+            <span class="text-lg font-bold tabular-nums text-emerald-300">100%</span>
+          </div>
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/50 p-3">
+            <div><p class="text-xs text-indigo-300">Rearranged + missing middle</p><p class="mt-1 text-sm">Vance Alexander</p></div>
+            <span class="text-lg font-bold tabular-nums text-emerald-300">85%</span>
+          </div>
+        </div>
+        <p class="mt-4 text-xs leading-5 text-slate-400">Illustration at the default 15-point missing-word penalty.</p>
+      </div>
+    </header>
+
+    <noscript><p class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">Enable JavaScript to use the matching engine, controls, and interactive results.</p></noscript>
+
+    <!-- Policy controls -->
+    <section id="policy" aria-labelledby="policy-title" class="panel rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="policy-title" class="text-lg font-bold"><span class="step" aria-hidden="true">01</span>Set the policy</h2>
+          <p class="mt-2 text-sm text-slate-500">Two controls. Every decision recalculated instantly.</p>
+        </div>
+        <button id="reset" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">
+          Reset to defaults
+        </button>
+      </div>
+
+      <div class="grid gap-8 md:grid-cols-2">
+        <div>
+          <div class="flex items-center justify-between gap-4">
+            <label for="threshold" class="font-semibold">Approval threshold</label>
+            <output id="threshold-value" for="threshold" class="text-2xl font-bold tabular-nums text-indigo-600">80%</output>
+          </div>
+          <input id="threshold" type="range" min="0" max="100" step="1" value="80"
+                 class="mt-4 w-full" aria-describedby="threshold-help">
+          <div class="flex justify-between text-xs text-slate-500">
+            <span>0% · More approvals</span>
+            <span>100% · Stricter</span>
+          </div>
+          <p id="threshold-help" class="mt-3 text-sm text-slate-600">
+            Scores at or above this threshold predict MATCH.
+          </p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between gap-4">
+            <label for="penalty" class="font-semibold">Missing word penalty</label>
+            <output id="penalty-value" for="penalty" class="text-2xl font-bold tabular-nums text-indigo-600">15%</output>
+          </div>
+          <input id="penalty" type="range" min="0" max="40" step="1" value="15"
+                 class="mt-4 w-full" aria-describedby="penalty-help">
+          <div class="flex justify-between text-xs text-slate-500">
+            <span>0% · Forgiving</span>
+            <span>40% · Strict</span>
+          </div>
+          <p id="penalty-help" class="mt-3 text-sm text-slate-600">
+            Deduct this many percentage points per extra or missing name component.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shared scope selector -->
+    <section id="performance" aria-labelledby="dataset-title" class="space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="dataset-title" class="text-lg font-bold"><span class="step" aria-hidden="true">02</span>See the trade-offs</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Isolate a scenario. The matrix, chart, and table all follow your selection.
+          </p>
+        </div>
+        <p id="scope" class="rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700"></p>
+      </div>
+      <p id="dataset-notice" role="status" class="text-sm text-slate-500">Loading examples...</p>
+
+      <div id="filters" role="group" aria-label="Filter dataset by scenario" class="flex flex-wrap gap-2"></div>
+
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Confusion matrix -->
+        <section aria-labelledby="matrix-title" class="panel min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="matrix-title" class="font-bold">Confusion matrix</h3>
+            <span class="text-xs text-slate-500">Positive = same identity</span>
+          </div>
+
+          <div class="matrix-grid mt-5 grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <div></div>
+            <div class="text-center text-xs font-semibold text-slate-500">Predicted MATCH</div>
+            <div class="text-center text-xs font-semibold text-slate-500">Predicted MISMATCH</div>
+
+            <div class="flex items-center text-xs font-semibold text-slate-500">
+              Actual<br>same identity
+            </div>
+
+            <div id="cell-tp" class="matrix-cell rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p class="text-xs font-semibold text-emerald-800">True positive</p>
+              <p id="count-tp" class="mt-2 text-4xl font-bold tabular-nums">0</p>
+              <p class="mt-2 text-xs text-slate-600">Correctly approved</p>
+              <span data-sandbox-marker class="mt-2 hidden text-xs font-bold text-indigo-700">Sandbox lands here</span>
+            </div>
+
+            <div id="cell-fn" class="matrix-cell rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold">False negative</p>
+              <p id="count-fn" class="mt-2 text-4xl font-bold tabular-nums">0</p>
+              <p class="mt-2 text-xs text-slate-600">Legitimate customer blocked</p>
+              <span data-sandbox-marker class="mt-2 hidden text-xs font-bold text-indigo-700">Sandbox lands here</span>
+            </div>
+
+            <div class="flex items-center text-xs font-semibold text-slate-500">
+              Actual<br>different identities
+            </div>
+
+            <div id="cell-fp" class="matrix-cell rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold">False positive</p>
+              <p id="count-fp" class="mt-2 text-4xl font-bold tabular-nums">0</p>
+              <p class="mt-2 text-xs text-slate-600">Wrong identity approved</p>
+              <span data-sandbox-marker class="mt-2 hidden text-xs font-bold text-indigo-700">Sandbox lands here</span>
+            </div>
+
+            <div id="cell-tn" class="matrix-cell rounded-xl border border-slate-200 bg-slate-100 p-4">
+              <p class="text-xs font-semibold text-slate-700">True negative</p>
+              <p id="count-tn" class="mt-2 text-4xl font-bold tabular-nums">0</p>
+              <p class="mt-2 text-xs text-slate-600">Correctly rejected</p>
+              <span data-sandbox-marker class="mt-2 hidden text-xs font-bold text-indigo-700">Sandbox lands here</span>
+            </div>
+          </div>
+
+          <dl class="mt-6 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-center">
+            <div>
+              <dt class="text-xs text-slate-500">Accuracy</dt>
+              <dd id="accuracy" class="mt-1 text-xl font-bold tabular-nums"></dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-500">Precision</dt>
+              <dd id="precision" class="mt-1 text-xl font-bold tabular-nums"></dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-500">Recall</dt>
+              <dd id="recall" class="mt-1 text-xl font-bold tabular-nums"></dd>
+            </div>
+          </dl>
+          <p class="mt-3 text-xs text-slate-500">
+            Precision: correct approvals / all approvals.
+            Recall: correct approvals / all legitimate cases.
+            N/A means the denominator is zero.
+          </p>
+        </section>
+
+        <!-- Chart -->
+        <section aria-labelledby="chart-title" class="panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <h3 id="chart-title" class="font-bold">Decision breakdown</h3>
+          <p class="mt-1 text-sm text-slate-500">Live counts for the selected dataset scope.</p>
+          <div class="relative mt-6 h-72">
+            <canvas id="breakdown" role="img" aria-label="Bar chart of true positives, false negatives, false positives, and true negatives"></canvas>
+          </div>
+          <p id="chart-error" role="alert" class="mt-4 hidden text-sm text-red-700"></p>
+          <p id="insight" class="mt-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600"></p>
+        </section>
+      </div>
+
+      <!-- Data table -->
+      <section aria-label="Live test results" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div class="flex flex-wrap justify-between gap-2 border-b border-slate-200 px-5 py-4">
+          <h3 class="font-bold">Live test results</h3>
+          <p id="row-count" class="text-sm text-slate-500"></p>
+        </div>
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable test results">
+          <table class="w-full text-left text-sm">
+            <caption class="sr-only">
+              KYC test cases, known identities, name similarity scores, and classification outcomes.
+            </caption>
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" class="px-5 py-4">Account / document</th>
+                <th scope="col" class="px-5 py-4">Scenario</th>
+                <th scope="col" class="px-5 py-4">Ground truth</th>
+                <th scope="col" class="px-5 py-4">Score</th>
+                <th scope="col" class="px-5 py-4">Prediction</th>
+                <th scope="col" class="px-5 py-4">Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="results" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- Sandbox -->
+    <section id="sandbox" aria-labelledby="sandbox-title" class="panel rounded-2xl border border-indigo-200 bg-white p-5 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="sandbox-title" class="text-lg font-bold"><span class="step" aria-hidden="true">03</span>Put a name to the test</h2>
+        <span id="storage-mode" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Sandbox</span>
+      </div>
+      <p class="mt-1 text-sm leading-6 text-slate-600">
+        Enter a pair or start with an example. Tell us whether it's the same person
+        to see its matrix placement. Save it to include it in your results.
+      </p>
+      <div class="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Load a sandbox example">
+        <span class="mr-1 text-xs font-semibold text-slate-500">TRY AN EXAMPLE</span>
+        <button type="button" data-example="rearranged" class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Rearranged name</button>
+        <button type="button" data-example="combined" class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Missing middle + reordered</button>
+        <button type="button" data-example="fraud" class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Similar name, different person</button>
+      </div>
+
+      <div class="mt-5 grid gap-4 md:grid-cols-3">
+        <div>
+          <label for="account-name" class="text-sm font-semibold">Account profile name</label>
+          <input id="account-name" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Enter account name" maxlength="200"
+                 class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2">
+        </div>
+        <div>
+          <label for="document-name" class="text-sm font-semibold">Scanned document name</label>
+          <input id="document-name" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Enter document name" maxlength="200"
+                 class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2">
+        </div>
+        <div>
+          <label for="sandbox-truth" class="text-sm font-semibold">Known ground truth</label>
+          <select id="sandbox-truth" class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            <option value="1">Same person (1)</option>
+            <option value="0">Different people (0)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-end gap-4">
+        <div>
+          <label for="sandbox-tag" class="text-sm font-semibold">Scenario to save under</label>
+          <select id="sandbox-tag" class="mt-2 block rounded-lg border border-slate-300 bg-white px-3 py-2">
+            <option value="custom">Custom / Other</option>
+            <option value="missing_middle">Missing Middle Name</option>
+            <option value="rearranged">Rearranged</option>
+            <option value="combined">Combined</option>
+            <option value="fraud">Fraud / Different Identity</option>
+          </select>
+        </div>
+        <button id="save-case" type="button" disabled
+                class="rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+          Save to dataset
+        </button>
+      </div>
+      <p id="storage-help" class="mt-3 text-xs text-slate-500">
+        Use fictional names only. Name similarity is not proof of identity.
+      </p>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p id="storage-status" role="status" aria-live="polite" class="text-sm text-slate-600">Loading examples...</p>
+        <button id="clear-saved" type="button" hidden class="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100">Clear my saved cases</button>
+      </div>
+      <div id="clear-confirmation" hidden class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+        <p>Remove your saved cases from this browser? The demo examples will stay.</p>
+        <button id="confirm-clear" type="button" class="rounded-lg border border-amber-300 px-3 py-2 font-semibold">Yes, clear</button>
+        <button id="cancel-clear" type="button" class="rounded-lg px-3 py-2 font-semibold">Cancel</button>
+      </div>
+      <button id="retry-load" type="button" hidden class="mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm">Retry loading dataset</button>
+
+      <div role="status" aria-live="polite" aria-atomic="true" class="mt-5 rounded-xl bg-indigo-50 p-4">
+        <p id="sandbox-result" class="font-semibold text-indigo-950">
+          Enter two names to see their score and matrix placement.
+        </p>
+        <p id="sandbox-detail" class="mt-2 text-sm leading-6 text-indigo-900"></p>
+      </div>
+
+      <div class="mt-4 overflow-x-auto">
+        <table id="token-table" class="hidden w-full text-left text-sm">
+          <caption class="pb-2 text-left text-xs font-semibold text-slate-500">
+            One-to-one token alignment; unmatched words receive the configured penalty.
+          </caption>
+          <thead class="text-xs text-slate-500">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Account token</th>
+              <th scope="col" class="py-2 pr-4">Document token</th>
+              <th scope="col" class="py-2">Jaro-Winkler similarity</th>
+            </tr>
+          </thead>
+          <tbody id="token-results" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <details class="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+      <summary class="cursor-pointer font-semibold text-slate-900">How the scoring works</summary>
+      <div class="mt-4 space-y-3 leading-6">
+        <p>
+          Names are lowercased, accents normalized, punctuation converted to spaces,
+          and split into sorted tokens. Sorting makes the outcome independent of
+          the original word order.
+        </p>
+        <p>
+          Every account/document token pair receives a Jaro-Winkler score.
+          The closest available pairs are selected first, using each token only
+          once. This is a deterministic greedy alignment—not a globally optimal
+          assignment—and prevents reusing one document word for several account words.
+        </p>
+        <p>
+          <strong>Base score</strong> = average similarity of the aligned pairs × 100.
+          The number of pairs equals the shorter name's token count, so a missing
+          middle name is handled by the explicit penalty rather than counted as
+          both a zero-similarity word and a penalty.
+        </p>
+        <p>
+          <strong>Final score</strong> =
+          clamp(base score − |account token count − document token count| × penalty, 0, 100).
+          Penalties apply symmetrically to extra and missing words.
+        </p>
+        <p>
+          At the default settings, “Alexander James Vance” and “Vance Alexander”
+          score 100 − 15 = <strong>85%</strong>, so they pass an 80% threshold.
+          Predictions use unrounded scores; displayed scores are rounded.
+          Inputs without letters or numbers are invalid, not classified.
+        </p>
+      </div>
+    </details>
+
+    <footer class="space-y-3 border-t border-slate-200 py-6 text-center text-xs leading-6 text-slate-500">
+      <p><strong class="font-semibold text-slate-600">A calibration demo, not an identity verification service.</strong><br>
+        Ground truth is independently known. Similar names can belong to different people.</p>
+      <p id="privacy-note">NameMatch Lab · Order-invariant scoring · Synthetic starter examples</p>
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    let dataset = [];
+    let datasetLoaded = false;
+    let saving = false;
+    let storageMode = null;
+    let seedDataset = [];
+    let browserStorageReady = false;
+    const savedCasesKey = "namematch.saved-cases.v1";
+
+    const filters = [
+      { key: "all", label: "All cases" },
+      { key: "missing_middle", label: "Missing Middle Name" },
+      { key: "rearranged", label: "Rearranged" },
+      { key: "combined", label: "Combined" },
+      { key: "fraud", label: "Fraud / Different Identity" },
+      { key: "custom", label: "Custom / Other" }
+    ];
+
+    const outcomes = {
+      tp: { name: "True Positive", badge: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+      fn: { name: "False Negative", badge: "border-orange-200 bg-orange-50 text-orange-800" },
+      fp: { name: "False Positive", badge: "border-red-200 bg-red-50 text-red-800" },
+      tn: { name: "True Negative", badge: "border-slate-200 bg-slate-100 text-slate-700" }
+    };
+
+    const $ = id => document.getElementById(id);
+    const keys = ["tp", "fn", "fp", "tn"];
+    let activeFilter = "all";
+    let chart = null;
+
+    function storageStatus(message, error = false) {
+      $("storage-status").textContent = message;
+      $("storage-status").className = `mt-3 text-sm ${error ? "text-red-700" : "text-slate-600"}`;
+    }
+
+    function validateDataset(data) {
+      if (!Array.isArray(data)) throw new Error("Dataset response must be an array.");
+      const ids = new Set();
+      for (const item of data) {
+        if (!item || !Number.isSafeInteger(item.id) || item.id < 1 ||
+            item.id >= Number.MAX_SAFE_INTEGER ||
+            ids.has(item.id) || !filters.some(f => f.key !== "all" && f.key === item.tag) ||
+            ![0, 1].includes(item.truth) ||
+            !["account", "document"].every(field =>
+              typeof item[field] === "string" && item[field].trim().length <= 200 &&
+              tokenize(item[field]).length > 0)) {
+          throw new Error("Dataset contains an invalid case or duplicate ID.");
+        }
+        ids.add(item.id);
+      }
+      return data;
+    }
+
+    async function requestJSON(url, options) {
+      const response = await fetch(url, { cache: "no-store", ...options });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+      return data;
+    }
+
+    function readBrowserCases() {
+      const value = localStorage.getItem(savedCasesKey);
+      return value === null ? [] : validateDataset(JSON.parse(value));
+    }
+
+    function combineCases(saved) {
+      let nextId = seedDataset.reduce((max, row) => Math.max(max, row.id), 0);
+      return validateDataset([
+        ...seedDataset,
+        ...saved.map(row => ({ ...row, id: ++nextId }))
+      ]);
+    }
+
+    function updateStorageCopy() {
+      const browser = storageMode === "browser";
+      $("storage-mode").textContent = browser ? "Saved on this device" : "Local JSON storage";
+      $("save-case").textContent = browser ? "Save on this device" : "Save to dataset";
+      $("storage-help").textContent = browser
+        ? "Use fictional names only. Saved cases stay in this browser on this device—not in the shared demo. Clearing browser data removes them."
+        : "Saving appends names, scenario, and ground truth to dataset.json on this computer. Only store names you have permission to keep.";
+      $("privacy-note").textContent = browser
+        ? "NameMatch Lab · Matching runs in your browser · Entered names are not sent to a server"
+        : "NameMatch Lab · Matching runs in your browser · Saves go to your local server";
+      $("clear-saved").hidden = !browser;
+    }
+
+    function loadBrowserCases() {
+      try {
+        dataset = combineCases(readBrowserCases());
+        browserStorageReady = true;
+        storageStatus(`Ready to explore. ${dataset.length - seedDataset.length} saved case(s) on this device.`);
+      } catch (error) {
+        browserStorageReady = false;
+        dataset = seedDataset.slice();
+        storageStatus(`Browser saves unavailable: ${error.message} Demo examples still work. Clear saved cases to reset invalid data, or enable browser storage.`, true);
+      }
+    }
+
+    async function loadDataset() {
+      $("retry-load").hidden = true;
+      datasetLoaded = false;
+      $("dataset-notice").textContent = "Loading examples...";
+      storageStatus("Loading examples...");
+      renderSandbox(Number($("threshold").value), Number($("penalty").value));
+      try {
+        if (location.protocol === "file:") {
+          throw new Error("Serve this page over HTTP instead of opening the HTML file directly.");
+        }
+        const config = await requestJSON("/demo-config.json");
+        if (!["browser", "server"].includes(config.storage)) {
+          throw new Error("Invalid storage configuration.");
+        }
+        storageMode = config.storage;
+        updateStorageCopy();
+        seedDataset = validateDataset(await requestJSON(
+          storageMode === "browser" ? "/dataset.json" : "/api/cases"
+        ));
+        if (storageMode === "browser") {
+          loadBrowserCases();
+        } else {
+          dataset = seedDataset.slice();
+          storageStatus(`Loaded ${dataset.length} cases from dataset.json.`);
+        }
+        datasetLoaded = true;
+        $("dataset-notice").textContent = storageMode === "browser"
+          ? "Synthetic examples + your device's saved cases. No changes are shared with other visitors."
+          : "Local dataset. Saved cases are written to JSON.";
+      } catch (error) {
+        storageStatus(`Dataset could not load: ${error.message}`, true);
+        $("dataset-notice").textContent = "Examples couldn't load. You can still try the sandbox. Use Retry below to load the dataset.";
+        $("retry-load").hidden = false;
+      }
+      renderFilters();
+      render();
+    }
+
+    async function saveCase() {
+      if (saving || !datasetLoaded || (storageMode === "browser" && !browserStorageReady)) return;
+      const input = {
+        account: $("account-name").value.trim(),
+        document: $("document-name").value.trim(),
+        tag: $("sandbox-tag").value,
+        truth: Number($("sandbox-truth").value)
+      };
+      if (!compareNames(input.account, input.document, 0) ||
+          input.account.length > 200 || input.document.length > 200) {
+        storageStatus("Enter two valid names of at most 200 characters before saving.", true);
+        return;
+      }
+      saving = true;
+      $("save-case").disabled = true;
+      $("save-case").textContent = "Saving...";
+      storageStatus(storageMode === "browser" ? "Saving on this device..." : "Writing case to dataset.json...");
+      try {
+        if (storageMode === "browser") {
+          const saved = readBrowserCases();
+          const nextId = saved.reduce((max, row) => Math.max(max, row.id), 0) + 1;
+          const updated = validateDataset([...saved, { ...input, id: nextId }]);
+          const combined = combineCases(updated);
+          localStorage.setItem(savedCasesKey, JSON.stringify(updated));
+          dataset = combined;
+        } else {
+          dataset = validateDataset(await requestJSON("/api/cases", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input)
+          }));
+        }
+        activeFilter = input.tag;
+        renderFilters();
+        render();
+        storageStatus(`Saved ${storageMode === "browser" ? "on this device" : "to dataset.json"}. Showing ${scenarioLabel(input.tag)}; ${dataset.length} total cases.`);
+      } catch (error) {
+        storageStatus(`Save could not be confirmed: ${error.message} Reload before retrying to avoid duplicates.`, true);
+      } finally {
+        saving = false;
+        $("save-case").textContent = storageMode === "browser" ? "Save on this device" : "Save to dataset";
+        renderSandbox(Number($("threshold").value), Number($("penalty").value));
+      }
+    }
+
+    function clearBrowserCases() {
+      try {
+        localStorage.removeItem(savedCasesKey);
+        browserStorageReady = true;
+        dataset = seedDataset.slice();
+        activeFilter = "all";
+        $("clear-confirmation").hidden = true;
+        renderFilters();
+        render();
+        storageStatus("Your saved cases have been cleared. Demo examples are unchanged.");
+      } catch (error) {
+        storageStatus(`Could not clear browser saves: ${error.message}`, true);
+      }
+    }
+
+    function tokenize(value) {
+      return value
+        .normalize("NFKD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .sort();
+    }
+
+    function jaroWinkler(left, right) {
+      if (left === right) return 1;
+
+      const a = Array.from(left);
+      const b = Array.from(right);
+      if (!a.length || !b.length) return 0;
+
+      const radius = Math.max(0, Math.floor(Math.max(a.length, b.length) / 2) - 1);
+      const matchedA = Array(a.length).fill(false);
+      const matchedB = Array(b.length).fill(false);
+      let matches = 0;
+
+      for (let i = 0; i < a.length; i++) {
+        const start = Math.max(0, i - radius);
+        const end = Math.min(b.length, i + radius + 1);
+
+        for (let j = start; j < end; j++) {
+          if (!matchedB[j] && a[i] === b[j]) {
+            matchedA[i] = true;
+            matchedB[j] = true;
+            matches++;
+            break;
+          }
+        }
+      }
+
+      if (!matches) return 0;
+
+      const sequenceA = a.filter((_, i) => matchedA[i]);
+      const sequenceB = b.filter((_, i) => matchedB[i]);
+      let differences = 0;
+
+      for (let i = 0; i < sequenceA.length; i++) {
+        if (sequenceA[i] !== sequenceB[i]) differences++;
+      }
+
+      const jaro = (
+        matches / a.length +
+        matches / b.length +
+        (matches - differences / 2) / matches
+      ) / 3;
+
+      let prefix = 0;
+      while (
+        prefix < Math.min(4, a.length, b.length) &&
+        a[prefix] === b[prefix]
+      ) {
+        prefix++;
+      }
+
+      return jaro > 0.7
+        ? jaro + prefix * 0.1 * (1 - jaro)
+        : jaro;
+    }
+
+    function compareNames(accountName, documentName, penalty) {
+      const account = tokenize(accountName);
+      const document = tokenize(documentName);
+
+      if (!account.length || !document.length) return null;
+
+      const candidates = [];
+      account.forEach((word, i) => {
+        document.forEach((other, j) => {
+          candidates.push({ i, j, similarity: jaroWinkler(word, other) });
+        });
+      });
+
+      candidates.sort((a, b) =>
+        b.similarity - a.similarity || a.i - b.i || a.j - b.j
+      );
+
+      const usedAccount = new Set();
+      const usedDocument = new Set();
+      const pairs = [];
+
+      for (const candidate of candidates) {
+        if (usedAccount.has(candidate.i) || usedDocument.has(candidate.j)) continue;
+        usedAccount.add(candidate.i);
+        usedDocument.add(candidate.j);
+        pairs.push({
+          account: account[candidate.i],
+          document: document[candidate.j],
+          similarity: candidate.similarity
+        });
+      }
+
+      const base = pairs.reduce((sum, pair) => sum + pair.similarity, 0)
+        / Math.min(account.length, document.length) * 100;
+      const missing = Math.abs(account.length - document.length);
+      const deduction = missing * penalty;
+
+      return {
+        score: Math.max(0, Math.min(100, base - deduction)),
+        base,
+        missing,
+        deduction,
+        pairs,
+        unmatchedAccount: account.filter((_, i) => !usedAccount.has(i)),
+        unmatchedDocument: document.filter((_, i) => !usedDocument.has(i))
+      };
+    }
+
+    function classify(truth, predictedMatch) {
+      return truth === 1
+        ? (predictedMatch ? "tp" : "fn")
+        : (predictedMatch ? "fp" : "tn");
+    }
+
+    function percent(value, digits = 2) {
+      return `${value.toFixed(digits)}%`;
+    }
+
+    function ratio(numerator, denominator) {
+      return denominator ? percent(numerator / denominator * 100, 1) : "N/A";
+    }
+
+    function scenarioLabel(tag) {
+      return filters.find(filter => filter.key === tag).label;
+    }
+
+    function outcomeDescription(key, tag) {
+      if (key === "fp") return "Wrong identity approved";
+      if (key === "tn") return "Different identity blocked";
+      if (key === "tp") return "Legitimate identity approved";
+      return tag === "custom" ? "Legitimate identity blocked" : tag === "rearranged"
+        ? "Legitimate name blocked"
+        : "Typos / omission blocked";
+    }
+
+    function addCell(row, value, className = "") {
+      const cell = document.createElement("td");
+      cell.className = `px-5 py-4 ${className}`;
+      cell.textContent = value;
+      row.append(cell);
+      return cell;
+    }
+
+    function renderFilters() {
+      const container = $("filters");
+      container.replaceChildren();
+
+      for (const filter of filters) {
+        const button = document.createElement("button");
+        const selected = filter.key === activeFilter;
+        const count = dataset.filter(item =>
+          filter.key === "all" || item.tag === filter.key
+        ).length;
+
+        button.type = "button";
+        button.textContent = `${filter.label} (${count})`;
+        button.setAttribute("aria-pressed", String(selected));
+        button.className = selected
+          ? "rounded-full border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+          : "rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100";
+
+        button.addEventListener("click", () => {
+          activeFilter = filter.key;
+          for (const sibling of container.children) {
+            const isSelected = sibling === button;
+            sibling.setAttribute("aria-pressed", String(isSelected));
+            sibling.className = isSelected
+              ? "rounded-full border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+              : "rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100";
+          }
+          render();
+        });
+
+        container.append(button);
+      }
+    }
+
+    function renderTable(rows) {
+      const fragment = document.createDocumentFragment();
+
+      for (const item of rows) {
+        const row = document.createElement("tr");
+        row.className = "hover:bg-slate-50";
+
+        const names = addCell(row, "");
+        const account = document.createElement("p");
+        account.className = "font-semibold";
+        account.textContent = item.account;
+        const documentName = document.createElement("p");
+        documentName.className = "mt-1 text-xs text-slate-500";
+        documentName.textContent = `Document: ${item.document}`;
+        names.append(account, documentName);
+
+        addCell(row, scenarioLabel(item.tag), "text-slate-600");
+        addCell(row, item.truth ? "Same person (1)" : "Different people (0)", "text-slate-600");
+
+        const scoreCell = addCell(row, percent(item.result.score), "font-bold tabular-nums");
+        scoreCell.title = `Unrounded score: ${item.result.score}%`;
+
+        addCell(
+          row,
+          item.predictedMatch ? "MATCH" : "MISMATCH",
+          item.predictedMatch
+            ? "font-semibold text-emerald-700"
+            : "font-semibold text-slate-600"
+        );
+
+        const outcomeCell = addCell(row, "");
+        const badge = document.createElement("span");
+        badge.className = `inline-block rounded-lg border px-2 py-1 text-xs font-semibold ${outcomes[item.outcome].badge}`;
+        badge.textContent = `${outcomes[item.outcome].name} — ${outcomeDescription(item.outcome, item.tag)}`;
+        outcomeCell.append(badge);
+        fragment.append(row);
+      }
+
+      if (!rows.length) {
+        const row = document.createElement("tr");
+        const cell = addCell(row, datasetLoaded
+          ? "No cases in this scenario yet. Save a sandbox pair to add one."
+          : "Examples are not loaded yet. The sandbox is still available.", "text-center text-slate-500");
+        cell.colSpan = 6;
+        fragment.append(row);
+      }
+      $("results").replaceChildren(fragment);
+    }
+
+    function renderSandbox(threshold, penalty) {
+      for (const key of keys) {
+        const cell = $(`cell-${key}`);
+        cell.classList.remove("sandbox-target");
+        cell.querySelector("[data-sandbox-marker]").classList.add("hidden");
+      }
+
+      const account = $("account-name").value;
+      const documentName = $("document-name").value;
+      const result = compareNames(account, documentName, penalty);
+      $("save-case").disabled = saving || !datasetLoaded || !result ||
+        (storageMode === "browser" && !browserStorageReady) ||
+        account.trim().length > 200 || documentName.trim().length > 200;
+
+      $("token-results").replaceChildren();
+      $("token-table").classList.toggle("hidden", !result);
+
+      if (!result) {
+        const hasBothInputs = account.trim() && documentName.trim();
+        $("sandbox-result").textContent = hasBothInputs
+          ? "Invalid input: each name must contain at least one letter or number."
+          : "Enter two names to see their score and matrix placement.";
+        $("sandbox-detail").textContent = "No sandbox classification is added to the dataset.";
+        return;
+      }
+
+      const predictedMatch = result.score >= threshold;
+      const truth = Number($("sandbox-truth").value);
+      const outcome = classify(truth, predictedMatch);
+      const cell = $(`cell-${outcome}`);
+      cell.classList.add("sandbox-target");
+      cell.querySelector("[data-sandbox-marker]").classList.remove("hidden");
+
+      $("sandbox-result").textContent =
+        `${percent(result.score, 4)} · ${predictedMatch ? "MATCH" : "MISMATCH"} · ${outcomes[outcome].name}`;
+
+      $("sandbox-detail").textContent =
+        `Base ${percent(result.base, 4)} − ${result.missing} unmatched component(s) × ${penalty} percentage points ` +
+        `= ${percent(result.score, 4)} after clamping. Threshold: ${threshold}%. ` +
+        `Ground truth: ${truth ? "same person" : "different people"}. ` +
+        `Placement only; dataset counts are unchanged.`;
+
+      const alignment = [
+        ...result.pairs,
+        ...result.unmatchedAccount.map(word => ({
+          account: word, document: "—", similarity: null
+        })),
+        ...result.unmatchedDocument.map(word => ({
+          account: "—", document: word, similarity: null
+        }))
+      ];
+
+      for (const pair of alignment) {
+        const row = document.createElement("tr");
+        for (const value of [
+          pair.account,
+          pair.document,
+          pair.similarity === null ? "Unmatched · penalty applied" : percent(pair.similarity * 100, 4)
+        ]) {
+          const td = document.createElement("td");
+          td.className = "py-2 pr-4";
+          td.textContent = value;
+          row.append(td);
+        }
+        $("token-results").append(row);
+      }
+    }
+
+    function render() {
+      const threshold = Number($("threshold").value);
+      const penalty = Number($("penalty").value);
+
+      $("threshold-value").textContent = `${threshold}%`;
+      $("penalty-value").textContent = `${penalty}%`;
+
+      const evaluated = dataset.map(item => {
+        const result = compareNames(item.account, item.document, penalty);
+        if (!result) throw new Error(`Invalid preloaded name in test case ${item.id}.`);
+        const predictedMatch = result.score >= threshold;
+        return {
+          ...item,
+          result,
+          predictedMatch,
+          outcome: classify(item.truth, predictedMatch)
+        };
+      });
+
+      const rows = evaluated.filter(item =>
+        activeFilter === "all" || item.tag === activeFilter
+      );
+      const counts = { tp: 0, fn: 0, fp: 0, tn: 0 };
+      rows.forEach(item => counts[item.outcome]++);
+
+      $("scope").textContent = `Scope: ${scenarioLabel(activeFilter)} · ${rows.length} cases`;
+      $("row-count").textContent = datasetLoaded
+        ? `${rows.length} of ${dataset.length} cases`
+        : "Dataset not loaded";
+
+      for (const key of keys) {
+        $(`count-${key}`).textContent = counts[key];
+      }
+
+      for (const key of ["fp", "fn"]) {
+        const cell = $(`cell-${key}`);
+        const risky = counts[key] > 0;
+        const red = key === "fp";
+        cell.classList.toggle("bg-slate-50", !risky);
+        cell.classList.toggle("border-slate-200", !risky);
+        cell.classList.toggle(red ? "bg-red-50" : "bg-orange-50", risky);
+        cell.classList.toggle(red ? "border-red-300" : "border-orange-300", risky);
+      }
+
+      $("accuracy").textContent = ratio(counts.tp + counts.tn, rows.length);
+      $("precision").textContent = ratio(counts.tp, counts.tp + counts.fp);
+      $("recall").textContent = ratio(counts.tp, counts.tp + counts.fn);
+
+      $("insight").textContent =
+        `${counts.fp} incorrect approval(s); ${counts.fn} legitimate customer(s) blocked in this scope. ` +
+        (counts.fp ? "A higher threshold can reduce incorrect approvals, but may block legitimate customers."
+          : counts.fn ? "Try reducing the missing-word penalty to let more legitimate variations through."
+          : "No errors in this selection at the current settings. Try a stricter threshold or a different scenario.");
+
+      renderTable(rows);
+      renderSandbox(threshold, penalty);
+
+      const chartValues = keys.map(key => counts[key]);
+      $("breakdown").setAttribute(
+        "aria-label",
+        keys.map(key => `${outcomes[key].name}: ${counts[key]}`).join(", ")
+      );
+
+      if (chart) {
+        chart.data.datasets[0].data = chartValues;
+        chart.update("none");
+      }
+    }
+
+    function initializeChart() {
+      if (typeof Chart === "undefined") {
+        $("breakdown").hidden = true;
+        $("chart-error").textContent =
+          "Chart.js could not load from the CDN. Check your internet connection and reload. " +
+          "The matrix, metrics, table, and sandbox remain available.";
+        $("chart-error").classList.remove("hidden");
+        return;
+      }
+
+      chart = new Chart($("breakdown"), {
+        type: "bar",
+        data: {
+          labels: ["True positive", "False negative", "False positive", "True negative"],
+          datasets: [{
+            label: "Cases",
+            data: [0, 0, 0, 0],
+            backgroundColor: ["#10b981", "#fb923c", "#f87171", "#94a3b8"],
+            borderRadius: 8,
+            maxBarThickness: 64
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: context => `${context.parsed.y} case(s)`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: "#64748b" }
+            },
+            y: {
+              beginAtZero: true,
+              suggestedMax: 4,
+              ticks: { stepSize: 1, precision: 0 },
+              title: { display: true, text: "Number of cases" },
+              grid: { color: "#f1f5f9" }
+            }
+          }
+        }
+      });
+    }
+
+    $("threshold").addEventListener("input", render);
+    $("penalty").addEventListener("input", render);
+
+    for (const id of ["account-name", "document-name", "sandbox-truth"]) {
+      $(id).addEventListener("input", () => {
+        renderSandbox(Number($("threshold").value), Number($("penalty").value));
+      });
+    }
+
+    $("reset").addEventListener("click", () => {
+      $("threshold").value = "80";
+      $("penalty").value = "15";
+      render();
+    });
+
+    $("save-case").addEventListener("click", saveCase);
+    $("retry-load").addEventListener("click", loadDataset);
+    $("clear-saved").addEventListener("click", () => {
+      $("clear-confirmation").hidden = false;
+      $("confirm-clear").focus();
+    });
+    $("confirm-clear").addEventListener("click", clearBrowserCases);
+    $("cancel-clear").addEventListener("click", () => {
+      $("clear-confirmation").hidden = true;
+      $("clear-saved").focus();
+    });
+    for (const button of document.querySelectorAll("[data-example]")) {
+      button.addEventListener("click", () => {
+        const tag = button.dataset.example;
+        const example = {
+          rearranged: { account: "Alexander James Vance", document: "Vance Alexander James", truth: "1" },
+          combined: { account: "Alexander James Vance", document: "Vance Alexander", truth: "1" },
+          fraud: { account: "Daniel Mark Lewis", document: "Danielle Marie Lewis", truth: "0" }
+        }[tag];
+        $("account-name").value = example.account;
+        $("document-name").value = example.document;
+        $("sandbox-truth").value = example.truth;
+        $("sandbox-tag").value = tag;
+        renderSandbox(Number($("threshold").value), Number($("penalty").value));
+      });
+    }
+    window.addEventListener("storage", event => {
+      if (storageMode === "browser" && datasetLoaded &&
+          (event.key === savedCasesKey || event.key === null)) {
+        loadBrowserCases();
+        renderFilters();
+        render();
+      }
+    });
+    renderFilters();
+    initializeChart();
+    render();
+    loadDataset();
+  </script>
+</body>
+</html>
